@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(
 	sweeper_sources
 	"src/main.cpp"
+	"src/board.cpp"
+	"src/board.h"
+	"src/game.cpp"
+	"src/game.h"
+	"src/solver.cpp"
+	"src/solver.h"
 )
 
 add_subdirectory("glfw-3.4")

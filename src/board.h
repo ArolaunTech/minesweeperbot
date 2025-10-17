@@ -5,12 +5,14 @@
 #define BOARD_H
 
 struct Board {
-	std::vector<std::vector<int> > mines;
-
+private:
+	std::vector<std::vector<bool> > mines;
+public:
 	bool isMine(int row, int col);
 	int numMinesAround(int row, int col);
 
 	void setMines(int rows, int cols, int nummines);
+	void setMineStatus(int row, int col, bool minestatus);
 
 	std::string toString();
 };

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(configrender LANGUAGES C CXX)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 set(
 	sweeper_sources
@@ -12,12 +12,16 @@ set(
 	"src/game.h"
 	"src/solver.cpp"
 	"src/solver.h"
+	"src/random.cpp"
+	"src/random.h"
 )
 
 add_subdirectory("glfw-3.4")
 
-add_library (glad STATIC "glad/src/glad.c")
+add_library(glad STATIC "glad/src/glad.c")
 target_include_directories(glad PUBLIC "glad/include")
+
+
 
 include(CheckCXXCompilerFlag)
 

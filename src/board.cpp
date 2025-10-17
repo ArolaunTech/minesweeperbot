@@ -4,7 +4,7 @@
 #include "random.h"
 
 bool Board::isMine(int row, int col) {
-	return mines[row][col] == 1;
+	return mines[row][col];
 }
 
 int Board::numMinesAround(int row, int col) {
@@ -14,17 +14,13 @@ int Board::numMinesAround(int row, int col) {
 	
 	for (int i = -1; i <= 1; i++) {
 		for (int j = -1; j <= 1; j++) {
-			if (i == 0 && j == 0) {
-				continue;
-			}
+			if (i == 0 && j == 0) continue;
 
 			int newrow = row + i;
 			int newcol = col + j;
-			if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) {
-				continue;
-			}
+			if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
 
-			out += mines[newrow][newcol];
+			out += mines[newrow][newcol] ? 1 : 0;
 		}
 	}
 
@@ -32,11 +28,7 @@ int Board::numMinesAround(int row, int col) {
 }
 
 void Board::setMines(int rows, int cols, int nummines) {
-	mines.clear();
-
-	for (int i = 0; i < rows; i++) {
-		mines.push_back(std::vector<int>(cols));
-	}
+	mines = std::vector<std::vector<bool> >(rows, std::vector<bool>(cols, false));
 
 	for (int i = 0; i < nummines; i++) {
 		int randrow, randcol;
@@ -44,10 +36,14 @@ void Board::setMines(int rows, int cols, int nummines) {
 		do {
 			randrow = randint(0, rows - 1);
 			randcol = randint(0, cols - 1);
-		} while (mines[randrow][randcol] == 1);
+		} while (mines[randrow][randcol]);
 
-		mines[randrow][randcol] = 1;
+		mines[randrow][randcol] = true;
 	}
+}
+
+void Board::setMineStatus(int row, int col, bool minestatus) {
+	mines[row][col] = minestatus;
 }
 
 std::string Board::toString() {

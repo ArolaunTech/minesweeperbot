@@ -20,9 +20,15 @@ struct Move {
 	bool flag;
 };
 
+struct AnalyzeResult {
+	std::vector<std::vector<double> > probabilities;
+	std::vector<std::vector<double> > information;
+};
+
 class Solver {
 	std::vector<Move> queue;
 public:
+	AnalyzeResult analyze(Game game);
 	std::vector<std::vector<double> > getMineProbabilities(Game game);
 	Move getBestMove(Game game);
 

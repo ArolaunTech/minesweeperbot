@@ -17,7 +17,7 @@ int main() {
 	int wins = 0;
 	int losses = 0;
 
-	for (int games = 0; games < 100; games++) {
+	for (int games = 0; games < 10000; games++) {
 	Game game(numrows, numcols, totalmines);
 
 	solver.clear();

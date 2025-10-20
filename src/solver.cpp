@@ -54,14 +54,14 @@ bool operator>(const BoardPosition& lhs, const BoardPosition& rhs) {
 	return lhs.col > rhs.col;
 }
 
-int getCellsOfTypeAroundAnother(CellState type, Game game, int i, int j) {
+int getCellsOfTypeAroundAnother(CellState type, Game game, int i, int j, int radius = 1) {
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 
 	int out = 0;
 
-	for (int dr = -1; dr <= 1; dr++) {
-		for (int dc = -1; dc <= 1; dc++) {
+	for (int dr = -radius; dr <= radius; dr++) {
+		for (int dc = -radius; dc <= radius; dc++) {
 			if (dr == 0 && dc == 0) continue;
 
 			int newrow = i + dr;
@@ -284,192 +284,9 @@ AnalyzeResult Solver::analyze(Game game) {
 		}
 	}
 
-	/*=== Get average info returns ===*/
-	std::vector<std::vector<double> > avgInfoReturns(numrows, std::vector<double>(numcols, 0));
-
-	//Get info returns for cells in middle of nowhere (optimization)
-	double logIsolatedCombinations = -1e100;
-	std::array<double, 9> logIsolatedResults;
-
-	logIsolatedResults.fill(-1e100);
-
-	for (std::size_t i = 0; i < numPossibilities; i++) {
-		double logCombinations = 0;
-		std::size_t irrelevantMines = totalmines - numflags;
-
-		for (std::size_t j = 0; j < numRelevantCellGroups; j++) {
-			logCombinations += lognCr(relevantCells[j].size(), possibilities[i][j]);
-
-			irrelevantMines -= possibilities[i][j];
-		}
-
-		if (irrelevantMines >= numUnrelevantCells) continue;
-		if (irrelevantMines < 0) continue;
-
-		for (int nummines = 0; nummines <= 8; nummines++) {
-			double logCombinationsFinal = logCombinations + lognCr(numUnrelevantCells - 9, irrelevantMines - nummines) + lognCr(8, nummines);
-
-			logIsolatedResults[nummines] = logAdd(logIsolatedResults[nummines], logCombinationsFinal);
-			logIsolatedCombinations = logAdd(logIsolatedCombinations, logCombinationsFinal);
-		}
-	}
-
-	double isolatedInfoReturns = 0;
-	for (int nummines = 0; nummines <= 8; nummines++) {
-		isolatedInfoReturns += (logIsolatedCombinations - logIsolatedResults[nummines]) * std::exp(logIsolatedResults[nummines] - logIsolatedCombinations);
-	}
-
-	//Get all info returns
-	for (std::size_t i = 0; i < numrows; i++) {
-		for (std::size_t j = 0; j < numcols; j++) {
-			if (game.getCell(i, j) != CELL_HIDDEN) continue;
-
-			bool isolated = true;
-			for (int dr = -2; dr <= 2; dr++) {
-				for (int dc = -2; dc <= 2; dc++) {
-					int newrow = i + dr;
-					int newcol = j + dc;
-
-					if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
-
-					isolated &= game.getCell(newrow, newcol) == CELL_HIDDEN;
-				}
-			}
-			if (isolated) {
-				avgInfoReturns[i][j] = isolatedInfoReturns;
-				continue;
-			}
-
-			std::ptrdiff_t currGroupIndex = groupIndices[i][j];
-
-			int freeCells = 0;
-			std::vector<int> neighboringGroups(numRelevantCellGroups + 1);
-			for (int dr = -1; dr <= 1; dr++) {
-				for (int dc = -1; dc <= 1; dc++) {
-					if (dr == 0 && dc == 0) continue;
-
-					int newrow = i + dr;
-					int newcol = j + dc;
-
-					if (newrow < 0 || newcol < 0 || newrow >= numrows || newcol >= numcols) continue;
-
-					if (game.getCell(newrow, newcol) != CELL_HIDDEN) continue;
-
-					freeCells++;
-
-					std::ptrdiff_t groupIndex = groupIndices[newrow][newcol];
-
-					if (groupIndex == -1) {
-						neighboringGroups[numRelevantCellGroups]++;
-					} else {
-						neighboringGroups[groupIndex]++;
-					}
-				}
-			}
-
-			if (freeCells == 0) continue;
-
-			double logTotalCombinations = -1e100;
-			std::array<double, 9> logCombinations;
-			logCombinations.fill(-1e100);
-
-			for (std::size_t k = 0; k < numPossibilities; k++) {
-				std::vector<int> minmines(numRelevantCellGroups + 1);
-				std::vector<int> maxmines(numRelevantCellGroups + 1);
-
-				bool valid = true;
-
-				for (std::size_t groupIndex = 0; groupIndex < numRelevantCellGroups; groupIndex++) {
-					std::size_t numCells = relevantCells[groupIndex].size();
-					std::size_t numMines = possibilities[k][groupIndex];
-					int numTouching = neighboringGroups[groupIndex];
-
-					if (groupIndex == currGroupIndex) numCells--;
-					if (numMines > numCells) {
-						valid = false;
-						break;
-					}
-
-					maxmines[groupIndex] = std::min(numTouching, (int)numMines);
-					minmines[groupIndex] = std::max(0, (int)(numMines + numTouching - numCells));
-				}
-
-				if (!valid) continue;
-
-				std::size_t irrelevantMines = totalmines - numflags;
-
-				for (std::size_t groupIndex = 0; groupIndex < numRelevantCellGroups; groupIndex++) {
-					irrelevantMines -= possibilities[k][groupIndex];
-				}
-
-				int numCells = numUnrelevantCells;
-				if (currGroupIndex == -1) numCells--;
-
-				if (irrelevantMines > numCells) continue;
-
-				maxmines[numRelevantCellGroups] = std::min(neighboringGroups[numRelevantCellGroups], (int)irrelevantMines);
-				minmines[numRelevantCellGroups] = std::max(0, (int)(irrelevantMines + neighboringGroups[numRelevantCellGroups] - numCells));
-
-				/*=== Find combinations ===*/
-				int numcombinations = 1;
-				for (std::size_t groupIndex = 0; groupIndex <= numRelevantCellGroups; groupIndex++) {
-					numcombinations *= maxmines[groupIndex] - minmines[groupIndex] + 1;
-				}
-
-				for (int combinationIndex = 0; combinationIndex < numcombinations; combinationIndex++) {
-					double logPossibilityCombinations = 0;
-					int cellNumber = 0;
-
-					int curr = combinationIndex;
-					for (std::size_t groupIndex = 0; groupIndex < numRelevantCellGroups; groupIndex++) {
-						int groupMines = minmines[groupIndex] + curr % (maxmines[groupIndex] - minmines[groupIndex] + 1);
-						std::size_t numCells = relevantCells[groupIndex].size();
-						
-						if (groupIndex == currGroupIndex) numCells--;					
-
-						logPossibilityCombinations += 
-							lognCr(neighboringGroups[groupIndex], groupMines) + 
-							lognCr(numCells - neighboringGroups[groupIndex], possibilities[k][groupIndex] - groupMines);
-
-						curr /= maxmines[groupIndex] - minmines[groupIndex] + 1;
-
-						cellNumber += groupMines;
-					}
-
-					int groupMines = minmines[numRelevantCellGroups] + curr % (maxmines[numRelevantCellGroups] - minmines[numRelevantCellGroups] + 1);
-					cellNumber += groupMines;
-
-					int numCells = numUnrelevantCells;
-					if (currGroupIndex == -1) numCells--;
-
-					logPossibilityCombinations += 
-						lognCr(neighboringGroups[numRelevantCellGroups], groupMines) + 
-						lognCr(numCells - neighboringGroups[numRelevantCellGroups], irrelevantMines - groupMines);
-
-					logCombinations[cellNumber] = logAdd(logCombinations[cellNumber], logPossibilityCombinations);
-
-					//std::cout << logCombinations[cellNumber] << " " << logPossibilityCombinations << "\n";
-				}
-			}
-
-			for (int cellNumber = 0; cellNumber <= 8; cellNumber++) {
-				logTotalCombinations = logAdd(logTotalCombinations, logCombinations[cellNumber]);
-			}
-
-			double totalInfo = 0;
-
-			for (int cellNumber = 0; cellNumber <= 8; cellNumber++) {
-				totalInfo += (logTotalCombinations - logCombinations[cellNumber]) * std::exp(logCombinations[cellNumber] - logTotalCombinations);
-			}
-
-			avgInfoReturns[i][j] = totalInfo;
-		}
-	}
-
 	AnalyzeResult analytics;
 
 	analytics.probabilities = out;
-	analytics.information = avgInfoReturns;
 
 	return analytics;
 }
@@ -553,7 +370,6 @@ Move Solver::getBestMove(Game game) {
 
 	AnalyzeResult analytics = analyze(game);
 	std::vector<std::vector<double> > probabilities = analytics.probabilities;
-	std::vector<std::vector<double> > info = analytics.information;
 
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
@@ -577,7 +393,6 @@ Move Solver::getBestMove(Game game) {
 	Move out;
 	out.flag = false;
 
-	//Naive rule #2 - always click on highest (info / probability)
 	double bestscore = -1;
 	std::size_t bestrow = 0, bestcol = 0;
 	for (std::size_t i = 0; i < numrows; i++) {
@@ -587,10 +402,7 @@ Move Solver::getBestMove(Game game) {
 			//Naive Rule 1 (37%)
 			double score = -probabilities[i][j];
 
-			//Naive Rule 2 (34%)
-			//double score = info[i][j] / probabilities[i][j];
-
-			if (score > bestscore) {
+			if (score >= bestscore) {
 				bestscore = score;
 				bestrow = i;
 				bestcol = j;

@@ -22,7 +22,6 @@ struct Move {
 
 struct AnalyzeResult {
 	std::vector<std::vector<double> > probabilities;
-	std::vector<std::vector<double> > information;
 };
 
 class Solver {

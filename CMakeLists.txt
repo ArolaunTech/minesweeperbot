@@ -16,12 +16,10 @@ set(
 	"src/random.h"
 )
 
-add_subdirectory("glfw-3.4")
+#add_subdirectory("glfw-3.4")
 
-add_library(glad STATIC "glad/src/glad.c")
-target_include_directories(glad PUBLIC "glad/include")
-
-
+#add_library(glad STATIC "glad/src/glad.c")
+#target_include_directories(glad PUBLIC "glad/include")
 
 include(CheckCXXCompilerFlag)
 
@@ -32,6 +30,6 @@ if(temp)
 endif()
 
 add_executable(sweepersolver ${sweeper_sources} ${PROJECT_PATH})
-target_link_libraries(sweepersolver glfw glad)
+target_link_libraries(sweepersolver)
 
-target_include_directories(sweepersolver PUBLIC "glad/include")
+#target_include_directories(sweepersolver PUBLIC "glad/include")

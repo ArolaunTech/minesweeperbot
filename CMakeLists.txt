@@ -29,6 +29,12 @@ if(temp)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()
 
+check_cxx_compiler_flag(-O3 temp2)
+
+if(temp)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif()
+
 add_executable(sweepersolver ${sweeper_sources} ${PROJECT_PATH})
 target_link_libraries(sweepersolver)
 

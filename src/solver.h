@@ -1,4 +1,5 @@
 #include <vector>
+#include <set>
 
 #include "game.h"
 
@@ -24,12 +25,26 @@ struct AnalyzeResult {
 	std::vector<std::vector<double> > probabilities;
 };
 
+struct PossibilitiesResult {
+	std::vector<std::set<BoardPosition> > groups;
+	std::vector<std::vector<BoardPosition> > relevantCells;
+
+	std::vector<std::vector<std::size_t> > possibilities;
+	std::vector<bool> valid;
+	std::vector<double> logCombinations;
+	double logTotalCombinations;
+};
+
 class Solver {
 	std::vector<Move> queue;
 public:
-	AnalyzeResult analyze(Game game);
-	std::vector<std::vector<double> > getMineProbabilities(Game game);
-	Move getBestMove(Game game);
+	AnalyzeResult analyze(Game& game);
+	PossibilitiesResult getPossibilities(Game& game);
+
+	BoardPosition runMCTS(Game& game);
+
+	std::vector<std::vector<double> > getMineProbabilities(Game& game);
+	Move getBestMove(Game& game);
 
 	void clear();
 };

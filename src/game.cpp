@@ -15,6 +15,23 @@ Game::Game(int rows, int cols, int nummines) {
 	totalmines = nummines;
 }
 
+void Game::initializeWithMineArrangement(std::vector<std::vector<bool> > mines) {
+	board.setMines(mines);
+
+	revealed = std::vector<std::vector<bool> >(mines.size(), std::vector<bool>(mines[0].size(), false));
+	flagged = std::vector<std::vector<bool> >(mines.size(), std::vector<bool>(mines[0].size(), false));
+
+	state = GAME_ONGOING;
+
+	totalmines = 0;
+
+	for (std::size_t i = 0; i < mines.size(); i++) {
+		for (std::size_t j = 0; j < mines[0].size(); j++) {
+			if (mines[i][j]) totalmines++;
+		}
+	}
+}
+
 std::size_t Game::getRows() {
 	return revealed.size();
 }

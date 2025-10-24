@@ -42,6 +42,10 @@ void Board::setMines(int rows, int cols, int nummines) {
 	}
 }
 
+void Board::setMines(std::vector<std::vector<bool> > newmines) {
+	mines = newmines;
+}
+
 void Board::setMineStatus(int row, int col, bool minestatus) {
 	mines[row][col] = minestatus;
 }

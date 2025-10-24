@@ -8,16 +8,16 @@
 #include "solver.h"
 
 int main() {
-	int numrows = 16;
-	int numcols = 30;
-	int totalmines = 99;
+	int numrows = 9;
+	int numcols = 9;
+	int totalmines = 10;
 
 	Solver solver;
 
 	int wins = 0;
 	int losses = 0;
 
-	for (int games = 0; games < 10000; games++) {
+	for (int games = 0; games < 100000; games++) {
 		Game game(numrows, numcols, totalmines);
 
 		solver.clear();

@@ -32,6 +32,10 @@ This will get us pretty far especially on lower-difficulty boards.
 
 Once we run out of trivially safe/unsafe cells to click/flag, we calculate the probability that each cell on the board is a mine by going through every possible combination of mines. We then click the safest cell.
 
+### Brute force search
+
+When the number of possible mine configurations are low, the solver uses brute force to calculate the perfect move from endgame positions. This adds about 0.7% to the winrate on Expert mode.
+
 ## Build instructions
 
 Run `sh build.sh` to compile the program. CMake is required.

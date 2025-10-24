@@ -722,6 +722,14 @@ BoardPosition Solver::runBruteForce(Game& game) {
 	return hiddenCells[result.bestClick];
 }
 
+BoardPosition Solver::runGS(Game& game) {
+	//Get best guessing move without brute force
+	AnalyzeResult analytics = analyze(game);
+
+
+	return BoardPosition {0, 0};
+}
+
 Move Solver::getBestMove(Game& game) {
 	if (queue.size() > 0) {
 		Move out = queue[queue.size() - 1];
@@ -800,7 +808,7 @@ Move Solver::getBestMove(Game& game) {
 		return out;
 	}
 
-	if (getNumHidden(game) < 20 && analytics.possibilities.logTotalCombinations < std::log(100000)) {
+	if (getNumHidden(game) < 20 && analytics.possibilities.logTotalCombinations < std::log(10000)) {
 		//Use brute force to get perfect play
 
 		BoardPosition bestMove = runBruteForce(game);
@@ -811,6 +819,8 @@ Move Solver::getBestMove(Game& game) {
 		out.col = bestMove.col;
 		return out;
 	}
+
+	BoardPosition bestMove = runGS(game);
 
 	Move out;
 	out.flag = false;

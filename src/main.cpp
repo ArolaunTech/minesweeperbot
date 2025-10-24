@@ -9,8 +9,8 @@
 
 int main() {
 	int numrows = 16;
-	int numcols = 16;
-	int totalmines = 40;
+	int numcols = 30;
+	int totalmines = 99;
 
 	Solver solver;
 
@@ -22,23 +22,23 @@ int main() {
 
 		solver.clear();
 		while (true) {
-			std::cout << game.toString();
+			//std::cout << game.toString();
 
-			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
-			error = 0.01 * std::round(10000.0 * error);
+			//double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
+			//error = 0.01 * std::round(10000.0 * error);
 
-			std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
+			//std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
 
 			GameState currstate = game.getGameState();
 
 			if (currstate == GAME_LOSS) {
-				std::cout << "Loss :(\n" << game.toString();
+				//std::cout << "Loss :(\n" /*<< game.toString()*/;
 				losses++;
 				break;
 			}
 
 			if (currstate == GAME_WIN) {
-				std::cout << "Win!\n";
+				//std::cout << "Win!\n";
 				wins++;
 				break;
 			}
@@ -65,7 +65,10 @@ int main() {
 			if (move.flag) game.flag(move.row, move.col); else game.click(move.row, move.col);
 		}
 
-		std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
+		double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
+		error = 0.01 * std::round(10000.0 * error);
+
+		std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
 	}
 
 	std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";

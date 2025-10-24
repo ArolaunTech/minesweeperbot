@@ -5,15 +5,42 @@
 #include <unordered_map>
 #include <algorithm>
 #include <array>
+#include <utility>
+#include <functional>
 
 #include "game.h"
 #include "solver.h"
 #include "random.h"
 
+struct TranspositionHash {
+	std::size_t operator()(const std::pair<std::vector<int>, std::vector<bool> >& p) const {
+		std::size_t h1 = 0;
+        for (int x : p.first) {
+            h1 ^= std::hash<int>{}(x) + 0x9e3779b9 + (h1 << 6) + (h1 >> 7); // Hash combining for vector<int>
+        }
+
+        std::size_t h2 = 0;
+        for (bool b : p.second) {
+            h2 ^= std::hash<bool>{}(b) + 0x7834dccb + (h2 << 10) + (h2 >> 1); // Hash combining for vector<bool>
+        }
+
+        // Combine the two hashes
+        return h1 ^ (h2 << 2); // Simple combination, more robust methods exist
+	}
+};
+
 template <typename T>
 void logVector(std::vector<T> a) {
 	for (std::size_t i = 0; i < a.size(); i++) {
 		std::cout << a[i] << " ";
+	}
+}
+
+template<typename T>
+void logVector(std::vector<std::vector<T> > a) {
+	for (std::size_t i = 0; i < a.size(); i++) {
+		logVector(a[i]);
+		std::cout << "\n";
 	}
 }
 
@@ -37,6 +64,27 @@ double logAdd(double logA, double logB) {
 	double maxLog = std::max(logA, logB);
 
 	return maxLog + std::log(1 + std::exp(-diff));
+}
+
+int factorial(int n) {
+	int out = 1;
+	for (int i = 2; i <= n; i++) {
+		out *= i;
+	}
+	return out;
+}
+
+int nCr(int n, int r) {
+	if (r < 0 || r > n) return 0;
+
+	int out = 1;
+
+	for (int i = 1; i <= r; i++) {
+		out *= n - r + i;
+		out /= i;
+	}
+
+	return out;
 }
 
 bool operator<(const BoardPosition& lhs, const BoardPosition& rhs) {
@@ -118,18 +166,43 @@ int getNumUnrelevantCells(Game& game) {
 	return numUnrelevantCells;
 }
 
+int getNumFlags(Game& game) {
+	std::size_t numrows = game.getRows();
+	std::size_t numcols = game.getCols();
+
+	int numflags = 0;
+
+	for (std::size_t i = 0; i < numrows; i++) {
+		for (std::size_t j = 0; j < numcols; j++) {
+			if (game.getCell(i, j) == CELL_FLAG) numflags++;
+		}
+	}
+
+	return numflags;
+}
+
+int getNumHidden(Game& game) {
+	std::size_t numrows = game.getRows();
+	std::size_t numcols = game.getCols();
+
+	int numhidden = 0;
+
+	for (std::size_t i = 0; i < numrows; i++) {
+		for (std::size_t j = 0; j < numcols; j++) {
+			if (game.getCell(i, j) == CELL_HIDDEN) numhidden++;
+		}
+	}
+
+	return numhidden;
+}
+
 PossibilitiesResult Solver::getPossibilities(Game& game) {
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 	int totalmines = game.getTotalMines();
 
 	/*=== Count flags ===*/
-	int numflags = 0;
-	for (std::size_t i = 0; i < numrows; i++) {
-		for (std::size_t j = 0; j < numcols; j++) {
-			if (game.getCell(i, j) == CELL_FLAG) numflags++;
-		}
-	}
+	int numflags = getNumFlags(game);
 
 	/*=== Create cell groups ===*/
 	std::vector<std::set<BoardPosition> > relevantCellGroups;
@@ -294,13 +367,7 @@ AnalyzeResult Solver::analyze(Game& game) {
 	int totalmines = game.getTotalMines();
 
 	/*=== Count flags ===*/
-	int numflags = 0;
-	for (std::size_t i = 0; i < numrows; i++) {
-		for (std::size_t j = 0; j < numcols; j++) {
-			if (game.getCell(i, j) == CELL_FLAG) numflags++;
-		}
-	}
-
+	int numflags = getNumFlags(game);
 	int numUnrelevantCells = getNumUnrelevantCells(game);
 
 	/*=== Create cell groups ===*/
@@ -360,112 +427,299 @@ AnalyzeResult Solver::analyze(Game& game) {
 	AnalyzeResult analytics;
 
 	analytics.probabilities = out;
+	analytics.possibilities = possibilities;
 
 	return analytics;
 }
 
-BoardPosition Solver::runMCTS(Game& game) {
+std::vector<std::vector<double> > Solver::getMineProbabilities(Game& game) {
+	return analyze(game).probabilities;
+}
+
+std::vector<bool> getIthMineCombination(int numcells, int nummines, int i) {
+	if (numcells <= 0) return std::vector<bool>();
+	if (numcells == 1) return std::vector<bool>{nummines == 1};
+
+	int combs0 = nCr(numcells - 1, nummines);
+
+	bool currmine = i >= combs0;
+	std::vector<bool> out = getIthMineCombination(numcells - 1, nummines - (currmine ? 1 : 0), i - (currmine ? combs0 : 0));
+
+	out.push_back(currmine);
+
+	return out;
+}
+
+struct BruteForceSearchResult {
+	std::size_t bestClick;
+	int wins;
+};
+
+BruteForceSearchResult bruteForceSearch(
+	Game& game, 
+	std::vector<int> allowedIndices,
+	std::vector<bool> allowedClicks,
+	int totalCombinations, 
+	std::vector<BoardPosition>& hiddenCells, 
+	std::vector<std::vector<std::size_t> >& hiddenCellIndex,
+	std::vector<std::vector<bool> >& mineCombinations,
+	std::unordered_map<std::pair<std::vector<int>, std::vector<bool> >, BruteForceSearchResult, TranspositionHash>& transpositionTable
+) {
+	if (transpositionTable.contains(std::pair<std::vector<int>, std::vector<bool> >(allowedIndices, allowedClicks))) {
+		return transpositionTable[std::pair<std::vector<int>, std::vector<bool> >(allowedIndices, allowedClicks)];
+	}
+
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
-	std::size_t totalmines = game.getTotalMines();
 
-	PossibilitiesResult possibilities = getPossibilities(game);
+	std::size_t numHiddenCells = hiddenCells.size();
 
-	/*=== Probabilities of each possibility ===*/
-	std::size_t numRelevantCellGroups = possibilities.groups.size();
+	std::size_t bestClick = 0;
+	int bestWins = 0;
+	bool forcedClick = false;
+
+	for (std::size_t click = 0; click < numHiddenCells; click++) {
+		if (!allowedClicks[click]) continue;
+
+		int losses = 0;
+
+		for (int i : allowedIndices) {
+			if (mineCombinations[i][click]) losses++;
+		}
+
+		if (losses == 0) {
+			bestClick = click;
+			forcedClick = true;
+			break;
+		}
+	}
+
+	for (std::size_t click = 0; click < numHiddenCells; click++) {
+		if (!allowedClicks[click]) continue;
+		if (forcedClick && click != bestClick) continue;
+
+		std::vector<bool> newAllowedClicks = allowedClicks;
+		newAllowedClicks[click] = false;
+
+		BoardPosition clickPosition = hiddenCells[click];
+
+		std::vector<std::vector<int> > indices(9);
+
+		for (int i : allowedIndices) {
+			if (mineCombinations[i][click]) continue;
+
+			int cellnumber = 0;
+
+			for (int dr = -1; dr <= 1; dr++) {
+				for (int dc = -1; dc <= 1; dc++) {
+					if (dr == 0 && dc == 0) continue;
+
+					int newrow = clickPosition.row + dr;
+					int newcol = clickPosition.col + dc;
+
+					if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
+
+					CellState other = game.getCell(newrow, newcol);
+
+					if (other == CELL_FLAG) {
+						cellnumber++;
+						continue;
+					}
+
+					if (other == CELL_HIDDEN && mineCombinations[i][hiddenCellIndex[newrow][newcol]]) {
+						cellnumber++;
+					}
+				}
+			}
+
+			indices[cellnumber].push_back(i);
+		}
+
+		int wins = 0;
+		for (int i = 0; i < 9; i++) {
+			std::size_t numRemainingPossibilities = indices[i].size();
+
+			if (numRemainingPossibilities == 0) continue;
+			if (numRemainingPossibilities == 1) {
+				wins++;
+				continue;
+			}
+
+			wins += bruteForceSearch(
+				game, 
+				indices[i], 
+				newAllowedClicks, 
+				totalCombinations, 
+				hiddenCells, 
+				hiddenCellIndex, 
+				mineCombinations,
+				transpositionTable
+			).wins;
+
+			//std::cout << wins << " " << i << " wins\n\n";
+		}
+		//logVector(indices);
+		//std::cout << "indices\n";
+		//logVector(allowedClicks);
+		//std::cout << " allowed\n";
+
+		//std::cout << wins << " wins\n";
+		//std::cout << forcedClick << " forced\n\n";
+
+		if (wins > bestWins) {
+			bestClick = click;
+			bestWins = wins;
+		}
+	}
+
+	BruteForceSearchResult out;
+	out.bestClick = bestClick;
+	out.wins = bestWins;
+
+	transpositionTable[std::pair<std::vector<int>, std::vector<bool> >(allowedIndices, allowedClicks)] = out;
+
+	return out;
+}
+
+BoardPosition Solver::runBruteForce(Game& game) {
+	/*
+	 * Consider all possible mine combinations and choose a perfect move based on that.
+	 * Should only run near the end of the game when there are relatively few moves left.
+	 */
+
+	/*=== Get basic game info ===*/
+	std::size_t numrows = game.getRows();
+	std::size_t numcols = game.getCols();
+	int totalmines = game.getTotalMines();
 
 	int numUnrelevantCells = getNumUnrelevantCells(game);
+	int numflags = getNumFlags(game);
 
-	/*=== Probability ===*/
+	std::vector<BoardPosition> hiddenCells;
+	std::vector<std::vector<std::size_t> > hiddenCellIndex(numrows, std::vector<std::size_t>(numcols, -1));
+
+	for (std::size_t row = 0; row < numrows; row++) {
+		for (std::size_t col = 0; col < numcols; col++) {
+			if (game.getCell(row, col) != CELL_HIDDEN) continue;
+
+			hiddenCellIndex[row][col] = hiddenCells.size();
+			hiddenCells.push_back(BoardPosition{(int)row, (int)col});
+		}
+	}
+
+	std::size_t numHiddenCells = hiddenCells.size();
+
+	/*=== Analyze game ===*/
+	AnalyzeResult analytics = analyze(game);
+	PossibilitiesResult possibilities = analytics.possibilities;
+
+	/*=== Enumerate combinations ===*/
 	std::size_t numPossibilities = possibilities.possibilities.size();
-	std::vector<double> possibleProbs(numPossibilities, 0);
+	std::size_t numRelevantCellGroups = possibilities.relevantCells.size();
+	int totalCombinations = 0;
+
+	std::vector<std::vector<bool> > mineCombinations;
 
 	for (std::size_t i = 0; i < numPossibilities; i++) {
 		if (!possibilities.valid[i]) continue;
-		
-		possibleProbs[i] = std::exp(possibilities.logCombinations[i] - possibilities.logTotalCombinations);
-	}
 
-	/*=== Search ===*/
-	for (int i = 0; i < 1000; i++) {
-		double selector = randfloat(0, 1);
-		int index = 0;
+		/*=== Calculate number of combinations for possibility ===*/
+		int possibilityCombinations = 1;
+		int irrelevantMines = totalmines - numflags;
 
-		while (selector > 0) {
-			selector -= possibleProbs[index];
-			index++;
-		}
-
-		index--;
-
-		/*=== Generate mine possibility ===*/
-		std::vector<std::size_t> possibility = possibilities.possibilities[index];
-		std::vector<std::vector<bool> > mines(numrows, std::vector<bool>(numcols));
-
-		for (std::size_t row = 0; row < numrows; row++) {
-			for (std::size_t col = 0; col < numcols; col++) {
-				mines[row][col] = game.getCell(row, col) == CELL_FLAG;
-			}
-		}
+		std::vector<int> groupDivs(numRelevantCellGroups + 1);
+		std::vector<int> groupMods(numRelevantCellGroups);
 
 		for (std::size_t groupIndex = 0; groupIndex < numRelevantCellGroups; groupIndex++) {
-			std::size_t groupmines = possibility[groupIndex];
-			std::size_t assigned = 0;
-			std::size_t numcells = possibilities.relevantCells[groupIndex].size();
+			int groupCombinations = nCr(
+				possibilities.relevantCells[groupIndex].size(), 
+				possibilities.possibilities[i][groupIndex]
+			);
 
-			for (std::size_t cellIndex = 0; cellIndex < numcells; cellIndex++) {
-				if (assigned == groupmines) break;
+			groupMods[groupIndex] = groupCombinations;
+			groupDivs[groupIndex] = possibilityCombinations;
 
-				bool mine = randfloat(0, 1) <= (double)(groupmines - assigned) / (numcells - cellIndex);
+			possibilityCombinations *= groupCombinations;
 
-				if (mine) assigned++;
-
-				mines[possibilities.relevantCells[groupIndex][cellIndex].row][possibilities.relevantCells[groupIndex][cellIndex].col] = mine;
-			}
+			irrelevantMines -= possibilities.possibilities[i][groupIndex];
 		}
 
-		std::size_t irrelevantmines = totalmines;
-		for (std::size_t row = 0; row < numrows; row++) {
-			for (std::size_t col = 0; col < numcols; col++) {
-				if (mines[row][col]) irrelevantmines--;
+		groupDivs[numRelevantCellGroups] = possibilityCombinations;
+
+		possibilityCombinations *= nCr(numUnrelevantCells, irrelevantMines);
+		totalCombinations += possibilityCombinations;
+
+		/*=== Store all possible combinations ===*/
+		for (int possIndex = 0; possIndex < possibilityCombinations; possIndex++) {
+			/*=== Initialize board ===*/
+			std::vector<bool> mines(numHiddenCells);
+
+			for (std::size_t groupIndex = 0; groupIndex < numRelevantCellGroups; groupIndex++) {
+				int groupCombinationIndex = (possIndex / groupDivs[groupIndex]) % groupMods[groupIndex];
+
+				std::vector<bool> mineCombo = getIthMineCombination(
+					possibilities.relevantCells[groupIndex].size(), 
+					possibilities.possibilities[i][groupIndex], 
+					groupCombinationIndex
+				);
+
+				for (std::size_t cellIndex = 0; cellIndex < possibilities.relevantCells[groupIndex].size(); cellIndex++) {
+					mines[
+						hiddenCellIndex[
+							possibilities.relevantCells[groupIndex][cellIndex].row
+						][
+							possibilities.relevantCells[groupIndex][cellIndex].col
+						]
+					] =
+						mineCombo[cellIndex];
+				}
 			}
-		}
 
-		std::size_t assigned = 0;
-		std::size_t encountered = 0;
-		for (std::size_t row = 0; row < numrows; row++) {
-			for (std::size_t col = 0; col < numcols; col++) {
-				if (!isUnrelevant(game, row, col)) continue;
+			int groupCombinationIndex = possIndex / groupDivs[numRelevantCellGroups];
 
-				bool mine = randfloat(0, 1) <= (double)(irrelevantmines - assigned) / (numUnrelevantCells - encountered);
+			std::vector<bool> mineCombo = getIthMineCombination(
+				numUnrelevantCells, 
+				irrelevantMines, 
+				groupCombinationIndex
+			);
 
-				if (mine) assigned++;
-				encountered++;
+			int seen = 0;
 
-				mines[row][col] = mine;
+			for (std::size_t row = 0; row < numrows; row++) {
+				for (std::size_t col = 0; col < numcols; col++) {
+					if (!isUnrelevant(game, row, col)) continue;
+
+					mines[hiddenCellIndex[row][col]] = mineCombo[seen];
+
+					seen++;
+				}
 			}
-		}
 
-		/*=== Setup game ===*/
-		std::vector<std::vector<bool> > revealed = game.getRevealed();
-		std::vector<std::vector<bool> > flagged = game.getFlagged();
-
-		logVector(possibility);
-		std::cout << " mcts poss\n";
-
-		for (std::size_t row = 0; row < numrows; row++) {
-			for (std::size_t col = 0; col < numcols; col++) {
-				std::cout << mines[row][col] << " ";
-			}
-			std::cout << "\n";
+			mineCombinations.push_back(mines);
 		}
 	}
 
-	return BoardPosition {0, 0};
-}
+	//std::vector<std::vector<bool> >(1 << numHiddenCells, std::vector<bool>())
 
-std::vector<std::vector<double> > Solver::getMineProbabilities(Game& game) {
-	return analyze(game).probabilities;
+	std::vector<int> allowedIndices(totalCombinations);
+	for (int i = 0; i < totalCombinations; i++) {
+		allowedIndices.push_back(i);
+	}
+
+	std::unordered_map<std::pair<std::vector<int>, std::vector<bool> >, BruteForceSearchResult, TranspositionHash> transpositionTable;
+
+	BruteForceSearchResult result = bruteForceSearch(
+		game, 
+		allowedIndices,
+		std::vector<bool>(numHiddenCells, true),
+		totalCombinations,
+		hiddenCells,
+		hiddenCellIndex,
+		mineCombinations,
+		transpositionTable
+	);
+
+	return hiddenCells[result.bestClick];
 }
 
 Move Solver::getBestMove(Game& game) {
@@ -546,7 +800,17 @@ Move Solver::getBestMove(Game& game) {
 		return out;
 	}
 
-	//BoardPosition bestguess = runMCTS(game);
+	if (getNumHidden(game) < 20 && analytics.possibilities.logTotalCombinations < std::log(100000)) {
+		//Use brute force to get perfect play
+
+		BoardPosition bestMove = runBruteForce(game);
+
+		Move out;
+		out.flag = false;
+		out.row = bestMove.row;
+		out.col = bestMove.col;
+		return out;
+	}
 
 	Move out;
 	out.flag = false;

@@ -21,10 +21,6 @@ struct Move {
 	bool flag;
 };
 
-struct AnalyzeResult {
-	std::vector<std::vector<double> > probabilities;
-};
-
 struct PossibilitiesResult {
 	std::vector<std::set<BoardPosition> > groups;
 	std::vector<std::vector<BoardPosition> > relevantCells;
@@ -35,13 +31,19 @@ struct PossibilitiesResult {
 	double logTotalCombinations;
 };
 
+struct AnalyzeResult {
+	PossibilitiesResult possibilities;
+
+	std::vector<std::vector<double> > probabilities;
+};
+
 class Solver {
 	std::vector<Move> queue;
 public:
 	AnalyzeResult analyze(Game& game);
 	PossibilitiesResult getPossibilities(Game& game);
 
-	BoardPosition runMCTS(Game& game);
+	BoardPosition runBruteForce(Game& game);
 
 	std::vector<std::vector<double> > getMineProbabilities(Game& game);
 	Move getBestMove(Game& game);

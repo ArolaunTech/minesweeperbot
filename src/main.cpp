@@ -8,22 +8,26 @@
 #include "solver.h"
 
 int main() {
-	int numrows = 9;
-	int numcols = 9;
-	int totalmines = 10;
+	int numrows = 16;
+	int numcols = 16;
+	int totalmines = 40;
 
 	Solver solver;
 
 	int wins = 0;
 	int losses = 0;
 
-	for (int games = 0; games < 100000; games++) {
+	for (int games = 0; games < 10000; games++) {
 		Game game(numrows, numcols, totalmines);
 
 		solver.clear();
 		while (true) {
 			std::cout << game.toString();
-			std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
+
+			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
+			error = 0.01 * std::round(10000.0 * error);
+
+			std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
 
 			GameState currstate = game.getGameState();
 
@@ -60,7 +64,9 @@ int main() {
 
 			if (move.flag) game.flag(move.row, move.col); else game.click(move.row, move.col);
 		}
+
+		std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
 	}
 
-	std::cout << wins << " " << losses << " " << std::round(100.0 * wins / (wins + losses)) << "%\n";
+	std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
 }

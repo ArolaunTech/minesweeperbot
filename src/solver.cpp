@@ -91,7 +91,7 @@ int getCellsOfTypeAroundAnother(CellState type, Game& game, int i, int j, int ra
 }
 
 bool isUnrelevant(Game& game, int row, int col) {
-	if (game.getCell(row, col) != CELL_HIDDEN) return false;
+	if (!game.cellIsState(row, col, CELL_HIDDEN)) return false;
 
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();

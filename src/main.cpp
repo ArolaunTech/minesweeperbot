@@ -8,9 +8,9 @@
 #include "solver.h"
 
 int main() {
-	int numrows = 16;
-	int numcols = 30;
-	int totalmines = 99;
+	int numrows = 9;
+	int numcols = 9;
+	int totalmines = 10;
 
 	Solver solver;
 

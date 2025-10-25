@@ -4,11 +4,11 @@ I don't have a name for this currently (though maybe I will eventually). Right n
 
 ## Current win rate
 
-91.25% &plusmn; 0.18% (100 000 trials) on Beginner **(9x9, 10 mines)**
+91.40% &plusmn; 0.17% (100 000 trials) on Beginner **(9x9, 10 mines)**
 
-76.90% &plusmn; 0.83% (10 000 trials) on Intermediate **(16x16, 40 mines)**
+77.29% &plusmn; 0.26% (100 000 trials) on Intermediate **(16x16, 40 mines)**
 
-39.18% &plusmn; 0.96% (10 000 trials) on Expert **(16x30, 99 mines)**
+39.33% &plusmn; 0.30% (100 000 trials) on Expert **(16x30, 99 mines)**
 
 ## How it works
 

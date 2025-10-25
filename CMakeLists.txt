@@ -14,6 +14,10 @@ set(
 	"src/solver.h"
 	"src/random.cpp"
 	"src/random.h"
+	"src/logmath.cpp"
+	"src/logmath.h"
+	"src/debug.cpp"
+	"src/debug.h"
 )
 
 #add_subdirectory("glfw-3.4")

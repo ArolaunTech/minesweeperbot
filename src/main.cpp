@@ -8,9 +8,9 @@
 #include "solver.h"
 
 int main() {
-	int numrows = 9;
-	int numcols = 9;
-	int totalmines = 10;
+	int numrows = 16;
+	int numcols = 16;
+	int totalmines = 40;
 
 	Solver solver;
 
@@ -65,10 +65,12 @@ int main() {
 			if (move.flag) game.flag(move.row, move.col); else game.click(move.row, move.col);
 		}
 
-		double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
-		error = 0.01 * std::round(10000.0 * error);
+		if (games % 100 == 0) {
+			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
+			error = 0.01 * std::round(10000.0 * error);
 
-		std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
+			std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
+		}
 	}
 
 	std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";

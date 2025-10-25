@@ -11,6 +11,8 @@
 #include "game.h"
 #include "solver.h"
 #include "random.h"
+#include "logmath.h"
+#include "debug.h"
 
 struct TranspositionHash {
 	std::size_t operator()(const std::pair<std::vector<int>, std::vector<bool> >& p) const {
@@ -28,43 +30,6 @@ struct TranspositionHash {
         return h1 ^ (h2 << 2); // Simple combination, more robust methods exist
 	}
 };
-
-template <typename T>
-void logVector(std::vector<T> a) {
-	for (std::size_t i = 0; i < a.size(); i++) {
-		std::cout << a[i] << " ";
-	}
-}
-
-template<typename T>
-void logVector(std::vector<std::vector<T> > a) {
-	for (std::size_t i = 0; i < a.size(); i++) {
-		logVector(a[i]);
-		std::cout << "\n";
-	}
-}
-
-double logFactorial(int n) {
-	double out = 0;
-	for (int i = 2; i <= n; i++) {
-		out += std::log((double)i);
-	}
-	return out;
-}
-
-double lognCr(int n, int r) {
-	if (r < 0) return -1e100;
-	if (r > n) return -1e100;
-
-	return logFactorial(n) - logFactorial(r) - logFactorial(n - r);
-}
-
-double logAdd(double logA, double logB) {
-	double diff = std::abs(logA - logB);
-	double maxLog = std::max(logA, logB);
-
-	return maxLog + std::log(1 + std::exp(-diff));
-}
 
 int factorial(int n) {
 	int out = 1;
@@ -504,11 +469,13 @@ BruteForceSearchResult bruteForceSearch(
 		BoardPosition clickPosition = hiddenCells[click];
 
 		std::vector<std::vector<int> > indices(9);
+		int potentialwins = 0;
 
 		for (int i : allowedIndices) {
 			if (mineCombinations[i][click]) continue;
 
 			int cellnumber = 0;
+			potentialwins++;
 
 			for (int dr = -1; dr <= 1; dr++) {
 				for (int dc = -1; dc <= 1; dc++) {
@@ -534,6 +501,8 @@ BruteForceSearchResult bruteForceSearch(
 
 			indices[cellnumber].push_back(i);
 		}
+
+		if (potentialwins <= bestWins) continue;
 
 		int wins = 0;
 		for (int i = 0; i < 9; i++) {
@@ -724,10 +693,31 @@ BoardPosition Solver::runBruteForce(Game& game) {
 
 BoardPosition Solver::runGS(Game& game) {
 	//Get best guessing move without brute force
+	std::size_t numrows = game.getRows();
+	std::size_t numcols = game.getCols();
+
 	AnalyzeResult analytics = analyze(game);
 
+	std::vector<std::vector<double> > probabilities = analytics.probabilities;
 
-	return BoardPosition {0, 0};
+	double bestscore = -1;
+	std::size_t bestrow = 0, bestcol = 0;
+	for (std::size_t i = 0; i < numrows; i++) {
+		for (std::size_t j = 0; j < numcols; j++) {
+			if (game.getCell(i, j) != CELL_HIDDEN) continue;
+
+			//Naive Rule 1 (37%)
+			double score = -probabilities[i][j];
+
+			if (score >= bestscore) {
+				bestscore = score;
+				bestrow = i;
+				bestcol = j;
+			}
+		}
+	}
+
+	return BoardPosition {(int)bestrow, (int)bestcol};
 }
 
 Move Solver::getBestMove(Game& game) {
@@ -808,9 +798,8 @@ Move Solver::getBestMove(Game& game) {
 		return out;
 	}
 
-	if (getNumHidden(game) < 20 && analytics.possibilities.logTotalCombinations < std::log(10000)) {
+	if (getNumHidden(game) < 20 && analytics.possibilities.logTotalCombinations < std::log(100000)) {
 		//Use brute force to get perfect play
-
 		BoardPosition bestMove = runBruteForce(game);
 
 		Move out;
@@ -825,25 +814,8 @@ Move Solver::getBestMove(Game& game) {
 	Move out;
 	out.flag = false;
 
-	double bestscore = -1;
-	std::size_t bestrow = 0, bestcol = 0;
-	for (std::size_t i = 0; i < numrows; i++) {
-		for (std::size_t j = 0; j < numcols; j++) {
-			if (game.getCell(i, j) != CELL_HIDDEN) continue;
-
-			//Naive Rule 1 (37%)
-			double score = -probabilities[i][j];
-
-			if (score >= bestscore) {
-				bestscore = score;
-				bestrow = i;
-				bestcol = j;
-			}
-		}
-	}
-
-	out.row = bestrow;
-	out.col = bestcol;
+	out.row = bestMove.row;
+	out.col = bestMove.col;
 
 	return out;
 }

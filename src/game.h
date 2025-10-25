@@ -43,6 +43,7 @@ public:
 	std::size_t getCols();
 
 	CellState getCell(int row, int col);
+	bool cellIsState(int row, int col, CellState state);
 	std::vector<std::vector<CellState> > getBoard();
 	std::vector<std::vector<bool> > getRevealed();
 	std::vector<std::vector<bool> > getFlagged();

@@ -48,6 +48,14 @@ CellState Game::getCell(int row, int col) {
 	return static_cast<CellState>(board.numMinesAround(row, col));
 }
 
+bool Game::cellIsState(int row, int col, CellState state) {
+	if (flagged[row][col]) return state == CELL_FLAG;
+	if (!revealed[row][col]) return state == CELL_HIDDEN;
+	if (board.isMine(row, col)) return state == CELL_MINE;
+
+	return getCell(row, col) == state;
+}
+
 std::vector<std::vector<CellState> > Game::getBoard() {
 	std::size_t numrows = getRows();
 	std::size_t numcols = getCols();

@@ -34,7 +34,11 @@ Once we run out of trivially safe/unsafe cells to click/flag, we calculate the p
 
 ### Brute force search
 
-When the number of possible mine configurations are low, the solver uses brute force to calculate the perfect move from endgame positions. This adds about 0.7% to the winrate on Expert mode.
+When the number of possible mine configurations are low (< 100 000), the solver uses brute force to calculate the perfect move from endgame positions. This adds about 0.7% to the winrate on Expert mode.
+
+## Weaknesses
+
+The solver currently struggles with early-game play if it does not get a 0 on the first move.
 
 ## Build instructions
 

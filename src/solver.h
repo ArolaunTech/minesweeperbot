@@ -45,6 +45,7 @@ public:
 
 	BoardPosition runBruteForce(Game& game);
 	BoardPosition runGS(Game& game);
+	bool runHeavyRollout(Game game);
 
 	std::vector<std::vector<double> > getMineProbabilities(Game& game);
 	Move getBestMove(Game& game);

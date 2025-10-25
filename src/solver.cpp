@@ -83,7 +83,7 @@ int getCellsOfTypeAroundAnother(CellState type, Game& game, int i, int j, int ra
 
 			if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
 
-			if (game.getCell(newrow, newcol) == type) out++;
+			if (game.cellIsState(newrow, newcol, type)) out++;
 		}
 	}
 
@@ -161,7 +161,84 @@ int getNumHidden(Game& game) {
 	return numhidden;
 }
 
+bool Solver::runHeavyRollout(Game game) {
+	std::size_t numrows = game.getRows();
+	std::size_t numcols = game.getCols();
+
+	while (game.getGameState() == GAME_ONGOING) {
+		bool moved = false;
+		for (std::size_t i = 0; i < numrows; i++) {
+			for (std::size_t j = 0; j < numcols; j++) {
+				CellState cell = game.getCell(i, j);
+				if (cell != CELL_HIDDEN) continue;
+
+				int numUnrevealedCells = getCellsOfTypeAroundAnother(CELL_HIDDEN, game, i, j);
+				int numFlags = getCellsOfTypeAroundAnother(CELL_FLAG, game, i, j);
+				
+				if (numFlags == cell || numFlags + numUnrevealedCells == cell) {
+					for (int dr = -1; dr <= 1; dr++) {
+						for (int dc = -1; dc <= 1; dc++) {
+							if (dr == 0 && dc == 0) continue;
+
+							int newrow = i + dr;
+							int newcol = j + dc;
+
+							if (newrow < 0 || newrow >= numrows) continue;
+							if (newcol < 0 || newcol >= numcols) continue;
+
+							CellState other = game.getCell(newrow, newcol);
+
+							if (other != CELL_HIDDEN) continue;
+
+							moved = true;
+
+							if (numFlags + numUnrevealedCells == cell) {
+								game.flag(newrow, newcol);
+							} else {
+								game.click(newrow, newcol);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (moved) continue;
+
+		AnalyzeResult analytics = analyze(game);
+		std::vector<std::vector<double> > probabilities = analytics.probabilities;
+
+		double bestscore = 1;
+		std::size_t bestrow = 0;
+		std::size_t bestcol = 0;
+		for (std::size_t i = 0; i < numrows; i++) {
+			for (std::size_t j = 0; j < numcols; j++) {
+				if (game.getCell(i, j) != CELL_HIDDEN) continue;
+
+				if (probabilities[i][j] == 0) {
+					game.click(i, j);
+					moved = true;
+				} else if (probabilities[i][j] == 1) {
+					game.flag(i, j);
+					moved = true;
+				} else if (probabilities[i][j] < bestscore) {
+					bestscore = probabilities[i][j];
+					bestrow = i;
+					bestcol = j;
+				}
+			}
+		}
+
+		if (moved) continue;
+
+		game.click(bestrow, bestcol);
+	}
+
+	return game.getGameState() == GAME_WIN;
+}
+
 PossibilitiesResult Solver::getPossibilities(Game& game) {
+	//TODO: Optimize. Currently this is the hottest function in the solver.
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 	int totalmines = game.getTotalMines();
@@ -234,6 +311,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 
 	/*=== Get possibilities ===*/
 	std::vector<std::vector<std::size_t> > possibilities = {{}};
+	std::vector<std::vector<std::size_t> > newPossibilities;
 
 	for (std::size_t i = 0; i < numRelevantCellGroups; i++) {
 
@@ -242,7 +320,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 
 		std::size_t numCells = cellGroup.size();
 
-		std::vector<std::vector<std::size_t> > newPossibilities;
+		newPossibilities.clear();
 		for (const auto& possibility : possibilities) {
 
 			int minMinesNeeded = 0;
@@ -282,7 +360,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 			}
 		}
 
-		possibilities = newPossibilities;
+		possibilities.swap(newPossibilities);
 	}
 
 	/*=== Probability ===*/
@@ -700,8 +778,13 @@ BoardPosition Solver::runGS(Game& game) {
 
 	std::vector<std::vector<double> > probabilities = analytics.probabilities;
 
-	double bestscore = -1;
 	std::size_t bestrow = 0, bestcol = 0;
+
+
+
+	/*=== Keep this for now ===*/
+	double bestscore = -1;
+	bestrow = 0; bestcol = 0;
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
 			if (game.getCell(i, j) != CELL_HIDDEN) continue;

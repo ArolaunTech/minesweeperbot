@@ -9,8 +9,8 @@
 
 int main() {
 	int numrows = 16;
-	int numcols = 16;
-	int totalmines = 40;
+	int numcols = 30;
+	int totalmines = 99;
 
 	Solver solver;
 

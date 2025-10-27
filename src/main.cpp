@@ -6,16 +6,21 @@
 #include "board.h"
 #include "game.h"
 #include "solver.h"
+#include "debug.h"
+#include "random.h"
 
 int main() {
-	int numrows = 9;
-	int numcols = 9;
-	int totalmines = 10;
+	int numrows = 16;
+	int numcols = 30;
+	int totalmines = 99;
 
 	Solver solver;
+	solver.bruteForceCalls = 0;
 
 	int wins = 0;
 	int losses = 0;
+
+	std::vector<int> revealedDist(numrows * numcols);
 
 	for (int games = 0; games < 100000; games++) {
 		Game game(numrows, numcols, totalmines);
@@ -34,6 +39,18 @@ int main() {
 			if (currstate == GAME_LOSS) {
 				//std::cout << "Loss :(\n" /*<< game.toString()*/;
 				losses++;
+
+				int revealed = 0;
+				for (int i = 0; i < numrows; i++) {
+					for (int j = 0; j < numcols; j++) {
+						CellState cell = game.getCell(i, j);
+						if (cell != CELL_HIDDEN && cell != CELL_FLAG && cell != CELL_MINE) {
+							revealed++;
+						}
+					}
+				}
+
+				revealedDist[revealed]++;
 				break;
 			}
 
@@ -64,14 +81,18 @@ int main() {
 
 			if (move.flag) game.flag(move.row, move.col); else game.click(move.row, move.col);
 		}
+		
 
-		if (games % 100 == 0) {
+		if (games % 100 == 99) {
 			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
 			error = 0.01 * std::round(10000.0 * error);
 
 			std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
+			std::cout << (double)solver.bruteForceCalls / (wins + losses) << "\n";
 		}
 	}
 
 	std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
+	logVector(revealedDist);
+	std::cout << "\n";
 }

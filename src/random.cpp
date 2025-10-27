@@ -13,3 +13,7 @@ int randint(int a, int b) {
 double randfloat(double a, double b) {
 	return uniform(generator) * (b - a) + a;
 }
+
+bool randchance(double x) {
+	return uniform(generator) < x;
+}

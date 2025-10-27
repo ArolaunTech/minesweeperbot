@@ -3,5 +3,6 @@
 
 int randint(int a, int b);
 double randfloat(double a, double b);
+bool randchance(double x);
 
 #endif

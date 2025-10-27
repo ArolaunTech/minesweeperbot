@@ -14,23 +14,6 @@
 #include "logmath.h"
 #include "debug.h"
 
-struct TranspositionHash {
-	std::size_t operator()(const std::pair<std::vector<int>, std::vector<bool> >& p) const {
-		std::size_t h1 = 0;
-        for (int x : p.first) {
-            h1 ^= std::hash<int>{}(x) + 0x9e3779b9 + (h1 << 6) + (h1 >> 7); // Hash combining for vector<int>
-        }
-
-        std::size_t h2 = 0;
-        for (bool b : p.second) {
-            h2 ^= std::hash<bool>{}(b) + 0x7834dccb + (h2 << 10) + (h2 >> 1); // Hash combining for vector<bool>
-        }
-
-        // Combine the two hashes
-        return h1 ^ (h2 << 2); // Simple combination, more robust methods exist
-	}
-};
-
 int factorial(int n) {
 	int out = 1;
 	for (int i = 2; i <= n; i++) {
@@ -90,15 +73,15 @@ int getCellsOfTypeAroundAnother(CellState type, Game& game, int i, int j, int ra
 	return out;
 }
 
-bool isUnrelevant(Game& game, int row, int col) {
+bool isUnrelevantRadius(Game& game, int row, int col, int radius) {
 	if (!game.cellIsState(row, col, CELL_HIDDEN)) return false;
 
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 
 	bool neighborless = true;
-	for (int dr = -1; dr <= 1; dr++) {
-		for (int dc = -1; dc <= 1; dc++) {
+	for (int dr = -radius; dr <= radius; dr++) {
+		for (int dc = -radius; dc <= radius; dc++) {
 			if (dr == 0 && dc == 0) continue;
 
 			int newr = row + dr;
@@ -114,6 +97,10 @@ bool isUnrelevant(Game& game, int row, int col) {
 	}
 
 	return neighborless;
+}
+
+bool isUnrelevant(Game& game, int row, int col) {
+	return isUnrelevantRadius(game, row, col, 1);
 }
 
 int getNumUnrelevantCells(Game& game) {
@@ -493,12 +480,7 @@ std::vector<bool> getIthMineCombination(int numcells, int nummines, int i) {
 	return out;
 }
 
-struct BruteForceSearchResult {
-	std::size_t bestClick;
-	int wins;
-};
-
-BruteForceSearchResult bruteForceSearch(
+BruteForceSearchResult Solver::bruteForceSearch(
 	Game& game, 
 	std::vector<int> allowedIndices,
 	std::vector<bool> allowedClicks,
@@ -508,6 +490,8 @@ BruteForceSearchResult bruteForceSearch(
 	std::vector<std::vector<bool> >& mineCombinations,
 	std::unordered_map<std::pair<std::vector<int>, std::vector<bool> >, BruteForceSearchResult, TranspositionHash>& transpositionTable
 ) {
+	bruteForceCalls++;
+
 	if (transpositionTable.contains(std::pair<std::vector<int>, std::vector<bool> >(allowedIndices, allowedClicks))) {
 		return transpositionTable[std::pair<std::vector<int>, std::vector<bool> >(allowedIndices, allowedClicks)];
 	}
@@ -521,25 +505,78 @@ BruteForceSearchResult bruteForceSearch(
 	int bestWins = 0;
 	bool forcedClick = false;
 
+	std::vector<bool> dead(numHiddenCells, true);
+	bool alldead = true;
+
 	for (std::size_t click = 0; click < numHiddenCells; click++) {
 		if (!allowedClicks[click]) continue;
 
-		int losses = 0;
+		BoardPosition clickPosition = hiddenCells[click];
+
+		bool mine = false;
+		int cellnumpossibilities = 0;
+
+		std::vector<bool> seen(9);
 
 		for (int i : allowedIndices) {
-			if (mineCombinations[i][click]) losses++;
+			if (mineCombinations[i][click]) {
+				mine = true;
+				continue;
+			}
+
+			int cellnumber = 0;
+
+			for (int dr = -1; dr <= 1; dr++) {
+				for (int dc = -1; dc <= 1; dc++) {
+					if (dr == 0 && dc == 0) continue;
+
+					int newrow = clickPosition.row + dr;
+					int newcol = clickPosition.col + dc;
+
+					if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
+
+					CellState other = game.getCell(newrow, newcol);
+
+					if (other == CELL_FLAG) cellnumber++;
+
+					if (other == CELL_HIDDEN && mineCombinations[i][hiddenCellIndex[newrow][newcol]]) {
+						cellnumber++;
+					}
+				}
+			}
+
+			if (!seen[cellnumber]) {
+				seen[cellnumber] = true;
+				cellnumpossibilities++;
+			}
 		}
 
-		if (losses == 0) {
+		if (cellnumpossibilities > 1) {
+			dead[click] = false;
+			alldead = false;
+		}
+
+		if (!mine) {
 			bestClick = click;
 			forcedClick = true;
+			alldead = false;
+			dead[click] = false;
 			break;
 		}
+	}
+
+	if (alldead) {
+		BruteForceSearchResult out;
+		out.wins = 1;
+		out.bestClick = 0;
+
+		return out;
 	}
 
 	for (std::size_t click = 0; click < numHiddenCells; click++) {
 		if (!allowedClicks[click]) continue;
 		if (forcedClick && click != bestClick) continue;
+		if (dead[click]) continue;
 
 		std::vector<bool> newAllowedClicks = allowedClicks;
 		newAllowedClicks[click] = false;
@@ -769,22 +806,256 @@ BoardPosition Solver::runBruteForce(Game& game) {
 	return hiddenCells[result.bestClick];
 }
 
+double getActualEval(Game& game) {
+	return 0;
+}
+
 BoardPosition Solver::runGS(Game& game) {
 	//Get best guessing move without brute force
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
+	int totalmines = game.getTotalMines();
 
 	AnalyzeResult analytics = analyze(game);
 
 	std::vector<std::vector<double> > probabilities = analytics.probabilities;
+	PossibilitiesResult possibilities = analytics.possibilities;
+
+	int numflags = getNumFlags(game);
+
+	std::size_t numRelevantCellGroups = possibilities.relevantCells.size();
 
 	std::size_t bestrow = 0, bestcol = 0;
 
+	std::vector<BoardPosition> moves;
+	for (std::size_t i = 0; i < numrows; i++) {
+		for (std::size_t j = 0; j < numcols; j++) {
+			if (!game.cellIsState(i, j, CELL_HIDDEN)) continue;
+			if (isUnrelevantRadius(game, i, j, 2)) continue;
 
+			moves.push_back(BoardPosition {(int)i, (int)j});
+		}
+	}
+
+	std::size_t nummoves = moves.size();
+
+	std::vector<double> score(nummoves);
+	std::vector<int> plays(nummoves);
+	int totalplays = 0;
+
+	double initconfidence = 100;
+	for (std::size_t i = 0; i < nummoves; i++) {
+		score[i] = initconfidence * (1 - probabilities[moves[i].row][moves[i].col]);
+		plays[i] = initconfidence;
+	}
+
+	for (int i = 0; i < 100 * nummoves; i++) {
+		double selector = randfloat(0, 1);
+
+		int possIndex = 0;
+		while (selector >= 0) {
+			if (!possibilities.valid[possIndex]) {
+				possIndex++;
+				continue;
+			}
+
+			selector -= std::exp(possibilities.logCombinations[possIndex] - possibilities.logTotalCombinations);
+			possIndex++;
+		}
+
+		possIndex--;
+
+		std::vector<std::size_t> possibility = possibilities.possibilities[possIndex];
+		std::vector<std::vector<bool> > mines(numrows, std::vector<bool>(numcols));
+
+		for (std::size_t row = 0; row < numrows; row++) {
+			for (std::size_t col = 0; col < numcols; col++) {
+				mines[row][col] = game.cellIsState(row, col, CELL_FLAG);
+			}
+		}
+
+		int irrelevantMines = totalmines - numflags;
+
+		for (std::size_t group = 0; group < numRelevantCellGroups; group++) {
+			std::size_t numcells = possibilities.relevantCells[group].size();
+			std::size_t nummines = possibility[group];
+
+			irrelevantMines -= nummines;
+
+			for (std::size_t mine = 0; mine < nummines; mine++) {
+				int randrow, randcol;
+
+				do {
+					int randidx = randint(0, numcells - 1);
+
+					randrow = possibilities.relevantCells[group][randidx].row;
+					randcol = possibilities.relevantCells[group][randidx].col;
+				} while (mines[randrow][randcol]);
+
+				mines[randrow][randcol] = true;
+			}
+		}
+		
+		for (int mine = 0; mine < irrelevantMines; mine++) {
+			int randrow, randcol;
+
+			do {
+				randrow = randint(0, numrows - 1);
+				randcol = randint(0, numcols - 1);
+			} while (!isUnrelevant(game, randrow, randcol) || mines[randrow][randcol]);
+
+			mines[randrow][randcol] = true;
+		}
+
+		for (int j = 0; j < 1; j++) {
+			std::vector<std::vector<bool> > revealed = game.getRevealed();
+			std::vector<int> movesMade;
+
+			bool loss = false;
+			for (int move = 0; move < 50; move++) {
+				int bestrandidx = 0;
+				double bestrandscore = 0;
+
+				for (int movetry = 0; movetry < nummoves; movetry++) {
+					int randidx = movetry;
+
+					if (revealed[moves[randidx].row][moves[randidx].col]) continue;
+
+					double currscore = score[randidx] / plays[randidx] + 1.3 * std::sqrt(std::log(totalplays) / plays[randidx]);
+
+					if (currscore > bestrandscore) {
+						bestrandidx = randidx;
+						bestrandscore = currscore;
+					}
+				}
+
+				BoardPosition position = moves[bestrandidx];
+
+				if (mines[position.row][position.col]) {
+					loss = true;
+				}
+
+				if (!revealed[position.row][position.col]) movesMade.push_back(bestrandidx);
+
+				revealed[position.row][position.col] = true;
+
+				//if (randchance(1.0 / 2.0)) break;
+				break;
+			}
+
+			for (std::size_t move = 0; move < movesMade.size(); move++) {
+				plays[movesMade[move]]++;
+				totalplays++;
+			}
+
+			if (loss) continue;
+
+			std::vector<std::vector<bool> > flagged = game.getFlagged();
+
+			bool moved;
+			do {
+				moved = false;
+
+				for (std::size_t row = 0; row < numrows; row++) {
+					for (std::size_t col = 0; col < numcols; col++) {
+						if (!revealed[row][col]) continue;
+
+						bool unflaggedmine = false;
+						bool unrevealedsafe = false;
+
+						for (int dr = -1; dr <= 1; dr++) {
+							for (int dc = -1; dc <= 1; dc++) {
+								if (dr == 0 && dc == 0) continue;
+
+								int newrow = row + dr;
+								int newcol = col + dc;
+
+								if (newrow < 0 || newrow >= numrows) continue;
+								if (newcol < 0 || newcol >= numcols) continue;
+
+								if (mines[newrow][newcol]) {
+									if (!flagged[newrow][newcol]) unflaggedmine = true;
+								} else {
+									if (!revealed[newrow][newcol]) unrevealedsafe = true;
+								}
+							}
+						}
+
+						//!unflaggedmine -> reveal all cells around this one
+						//unflaggedmine && !unrevealedsafe -> flag all cells around this one
+
+						if (unflaggedmine == unrevealedsafe) continue;
+
+						for (int dr = -1; dr <= 1; dr++) {
+							for (int dc = -1; dc <= 1; dc++) {
+								if (dr == 0 && dc == 0) continue;
+
+								int newrow = row + dr;
+								int newcol = col + dc;
+
+								if (newrow < 0 || newrow >= numrows) continue;
+								if (newcol < 0 || newcol >= numcols) continue;
+
+								if (revealed[newrow][newcol] || flagged[newrow][newcol]) continue;
+
+								moved = true;
+
+								if (unflaggedmine) {
+									flagged[newrow][newcol] = true;
+								} else {
+									revealed[newrow][newcol] = true;
+								}
+							}
+						}
+					}
+				}
+			} while (moved);
+
+			int numrevealed = 0;
+			for (std::size_t row = 0; row < numrows; row++) {
+				for (std::size_t col = 0; col < numcols; col++) {
+					if (revealed[row][col] || flagged[row][col]) numrevealed++;
+				}
+			}
+
+			//Game finalgame(0, 0, 0);
+			//finalgame.initializeWithState(mines, revealed, flagged);
+
+			//double finalscore = runHeavyRollout(finalgame) ? 1 : 0;
+
+			//double logInitCombinations = lognCr(numrows * numcols, totalmines);
+			//double finalscore = 1 - analyze(game).possibilities.logTotalCombinations / logInitCombinations;
+
+			double finalscore = (double) numrevealed / numrows / numcols;
+
+			if (finalscore < .1) finalscore *= 5;
+			else if (finalscore > .9) finalscore = 1 - (1 - finalscore) * 5;
+			else finalscore = .5;
+
+			for (std::size_t move = 0; move < movesMade.size(); move++) {
+				score[movesMade[move]] += finalscore;
+			}
+		}
+	}
+
+	//logVector(plays);
+	//std::cout << "plays\n";
+	//logVector(score);
+	//std::cout << "score\n";
+
+	std::size_t bestidx = 0;
+	for (std::size_t i = 0; i < nummoves; i++) {
+		if (plays[i] > plays[bestidx]) {
+			bestidx = i;
+		}
+	}
+
+	bestrow = moves[bestidx].row;
+	bestcol = moves[bestidx].col;
 
 	/*=== Keep this for now ===*/
 	double bestscore = -1;
-	bestrow = 0; bestcol = 0;
+	//bestrow = 0; bestcol = 0;
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
 			if (game.getCell(i, j) != CELL_HIDDEN) continue;
@@ -794,8 +1065,8 @@ BoardPosition Solver::runGS(Game& game) {
 
 			if (score >= bestscore) {
 				bestscore = score;
-				bestrow = i;
-				bestcol = j;
+	//			bestrow = i;
+	//			bestcol = j;
 			}
 		}
 	}

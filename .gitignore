@@ -7,3 +7,4 @@ Makefile
 CMakeFiles
 CMakeCache.txt
 .DS_Store
+log.txt

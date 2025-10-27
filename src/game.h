@@ -37,7 +37,11 @@ class Game {
 public:
 	Game(int rows, int cols, int nummines);
 
-	void initializeWithMineArrangement(std::vector<std::vector<bool> > mines);
+	void initializeWithState(
+		std::vector<std::vector<bool> >& newmines,
+		std::vector<std::vector<bool> >& newrevealed,
+		std::vector<std::vector<bool> >& newflagged
+	);
 
 	std::size_t getRows();
 	std::size_t getCols();

@@ -2,7 +2,7 @@
 
 I don't have a name for this currently (though maybe I will eventually). Right now it's fairly strong, but not strong enough.
 
-## Current win rate
+## Best win rate
 
 91.40% &plusmn; 0.17% (100 000 trials) on Beginner **(9x9, 10 mines)**
 
@@ -12,7 +12,7 @@ I don't have a name for this currently (though maybe I will eventually). Right n
 
 ## How it works
 
-The solver uses a number of techniques to solve Minesweeper boards.
+The solver uses a number of techniques to solve Minesweeper boards. I list them here in order of least to most expensive.
 
 ### Trivially safe / unsafe cells
 
@@ -30,7 +30,7 @@ This will get us pretty far especially on lower-difficulty boards.
 
 ### Mine Probabilities
 
-Once we run out of trivially safe/unsafe cells to click/flag, we calculate the probability that each cell on the board is a mine by going through every possible combination of mines. We then click the safest cell.
+Once we run out of trivially safe/unsafe cells to click/flag, we calculate the probability that each cell on the board is a mine by going through every possible combination of mines. This allows us to solve patterns like the `2 1`, `1 2 1`, or `1 2 2 1`. This usually reveals many more safe and unsafe cells which we can then click/flag. If we are in the early-mid game, we click the safest cell, but if we are in the late-game, we use...
 
 ### Brute force search
 

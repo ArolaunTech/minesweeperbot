@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <fstream>
 
 #include "board.h"
 #include "game.h"
@@ -22,7 +23,9 @@ int main() {
 
 	std::vector<int> revealedDist(numrows * numcols);
 
-	for (int games = 0; games < 100000; games++) {
+	//std::ofstream log("log.txt");
+
+	for (int games = 0; games < 10000; games++) {
 		Game game(numrows, numcols, totalmines);
 
 		solver.clear();
@@ -33,6 +36,20 @@ int main() {
 			//error = 0.01 * std::round(10000.0 * error);
 
 			//std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "% +- " << error << "%\n";
+
+			//std::vector<int> freqs(12);
+			//for (int i = 0; i < numrows; i++) {
+			//	for (int j = 0; j < numcols; j++) {
+			//		freqs[game.getCell(i, j)]++;
+			//	}
+			//}
+
+			//for (int i = 0; i < 12; i++) {
+			//	log << freqs[i] << " ";
+			//}
+			//log << "\n";
+
+			//log << solver.analyze(game).possibilities.logTotalCombinations << " ";
 
 			GameState currstate = game.getGameState();
 
@@ -51,12 +68,16 @@ int main() {
 				}
 
 				revealedDist[revealed]++;
+
+				//log << "loss\n";
 				break;
 			}
 
 			if (currstate == GAME_WIN) {
 				//std::cout << "Win!\n";
 				wins++;
+
+				//log << "win\n";
 				break;
 			}
 
@@ -83,7 +104,7 @@ int main() {
 		}
 		
 
-		if (games % 100 == 99) {
+		if /*(games % 100 == 99)*/(true) {
 			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
 			error = 0.01 * std::round(10000.0 * error);
 
@@ -91,6 +112,8 @@ int main() {
 			std::cout << (double)solver.bruteForceCalls / (wins + losses) << "\n";
 		}
 	}
+
+	//log.close();
 
 	std::cout << wins << " " << losses << " " << 0.01 * std::round(10000.0 * wins / (wins + losses)) << "%\n";
 	logVector(revealedDist);

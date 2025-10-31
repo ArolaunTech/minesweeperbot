@@ -25,7 +25,7 @@ int main() {
 
 	//std::ofstream log("log.txt");
 
-	for (int games = 0; games < 10000; games++) {
+	for (int games = 0; games < 100000; games++) {
 		Game game(numrows, numcols, totalmines);
 
 		solver.clear();

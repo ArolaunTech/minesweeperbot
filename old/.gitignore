@@ -1,0 +1,10 @@
+glad
+glfw-3.4
+libglad.a
+sweepersolver
+cmake_install.cmake
+Makefile
+CMakeFiles
+CMakeCache.txt
+.DS_Store
+log.txt

@@ -12,13 +12,7 @@ struct TranspositionHash {
         for (int x : p) {
             h1 ^= std::hash<int>{}(x) + 0x9e3779b9 + (h1 << 6) + (h1 >> 7);
         }
-
-        //std::size_t h2 = 0;
-        //for (bool b : p.second) {
-        //    h2 ^= std::hash<bool>{}(b) + 0x7834dccb + (h2 << 10) + (h2 >> 1);
-        //}
-
-        //return h1 ^ (h2 << 2);
+        
         return h1;
 	}
 };

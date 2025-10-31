@@ -660,7 +660,7 @@ SearchResult Solver::search(
 		if (!allowedClicks[click]) continue;
 		if (forcedClick && click != bestClick) continue;
 		if (dead[click]) continue;
-		if (forcedGroup != -1 && hiddenCellGroups[click] != forcedGroup) continue;
+		if (!forcedClick && forcedGroup != -1 && hiddenCellGroups[click] != forcedGroup) continue;
 
 		std::vector<bool> newAllowedClicks = allowedClicks;
 		newAllowedClicks[click] = false;

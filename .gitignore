@@ -2,6 +2,7 @@ glad
 glfw-3.4
 libglad.a
 sweepersolver
+sweepersolverold
 cmake_install.cmake
 Makefile
 CMakeFiles

@@ -16,6 +16,8 @@ set(
 	"src/random.h"
 	"src/logmath.cpp"
 	"src/logmath.h"
+	"src/math.cpp"
+	"src/math.h"
 	"src/debug.h"
 )
 

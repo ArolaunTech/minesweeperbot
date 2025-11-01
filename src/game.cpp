@@ -16,7 +16,7 @@ Game::Game(int rows, int cols, int nummines) {
 }
 
 void Game::initializeWithState(
-	std::vector<std::vector<bool> >& newmines,
+	std::vector<std::vector<int> >& newmines,
 	std::vector<std::vector<bool> >& newrevealed,
 	std::vector<std::vector<bool> >& newflagged
 ) {
@@ -52,12 +52,12 @@ CellState Game::getCell(int row, int col) {
 	return static_cast<CellState>(board.numMinesAround(row, col));
 }
 
-bool Game::cellIsState(int row, int col, CellState state) {
-	if (flagged[row][col]) return state == CELL_FLAG;
-	if (!revealed[row][col]) return state == CELL_HIDDEN;
-	if (board.isMine(row, col)) return state == CELL_MINE;
+bool Game::isHidden(int row, int col) {
+	return !flagged[row][col] && !revealed[row][col];
+}
 
-	return getCell(row, col) == state;
+bool Game::isFlag(int row, int col) {
+	return flagged[row][col];
 }
 
 std::vector<std::vector<CellState> > Game::getBoard() {

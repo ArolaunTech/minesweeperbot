@@ -1,3 +1,3 @@
-mv -f sweepersolver ../sweepersolverold
+mv -f sweepersolver sweepersolverold
 cmake .
 make

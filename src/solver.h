@@ -33,7 +33,7 @@ struct Move {
 };
 
 struct PossibilitiesResult {
-	std::vector<std::set<BoardPosition> > groups;
+	std::vector<std::vector<BoardPosition> > groups;
 	std::vector<std::vector<BoardPosition> > relevantCells;
 
 	std::vector<std::vector<std::size_t> > possibilities;
@@ -67,6 +67,7 @@ class Solver {
 	);
 public:
 	int bruteForceCalls;
+	bool guessed;
 
 	AnalyzeResult analyze(Game& game);
 	PossibilitiesResult getPossibilities(Game& game);

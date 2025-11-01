@@ -1,7 +1,6 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
-#include <set>
 #include <unordered_map>
 #include <algorithm>
 #include <array>
@@ -13,27 +12,7 @@
 #include "random.h"
 #include "logmath.h"
 #include "debug.h"
-
-int factorial(int n) {
-	int out = 1;
-	for (int i = 2; i <= n; i++) {
-		out *= i;
-	}
-	return out;
-}
-
-int nCr(int n, int r) {
-	if (r < 0 || r > n) return 0;
-
-	int out = 1;
-
-	for (int i = 1; i <= r; i++) {
-		out *= n - r + i;
-		out /= i;
-	}
-
-	return out;
-}
+#include "math.h"
 
 bool operator<(const BoardPosition& lhs, const BoardPosition& rhs) {
 	if (lhs.row < rhs.row) return true;
@@ -66,7 +45,7 @@ int getCellsOfTypeAroundAnother(CellState type, Game& game, int i, int j, int ra
 
 			if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
 
-			if (game.cellIsState(newrow, newcol, type)) out++;
+			if (game.getCell(newrow, newcol) == type) out++;
 		}
 	}
 
@@ -74,12 +53,11 @@ int getCellsOfTypeAroundAnother(CellState type, Game& game, int i, int j, int ra
 }
 
 bool isUnrelevantRadius(Game& game, int row, int col, int radius) {
-	if (!game.cellIsState(row, col, CELL_HIDDEN)) return false;
+	if (!game.isHidden(row, col)) return false;
 
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 
-	bool neighborless = true;
 	for (int dr = -radius; dr <= radius; dr++) {
 		for (int dc = -radius; dc <= radius; dc++) {
 			if (dr == 0 && dc == 0) continue;
@@ -90,13 +68,11 @@ bool isUnrelevantRadius(Game& game, int row, int col, int radius) {
 			if (newr < 0 || newr >= numrows) continue;
 			if (newc < 0 || newc >= numcols) continue;
 
-			CellState other = game.getCell(newr, newc);
-
-			neighborless &= (other == CELL_HIDDEN || other == CELL_FLAG);
+			if (!game.isHidden(newr, newc) && !game.isFlag(newr, newc)) return false;
 		}
 	}
 
-	return neighborless;
+	return true;
 }
 
 bool isUnrelevant(Game& game, int row, int col) {
@@ -225,7 +201,6 @@ bool Solver::runHeavyRollout(Game game) {
 }
 
 PossibilitiesResult Solver::getPossibilities(Game& game) {
-	//TODO: Optimize. Currently this is the hottest function in the solver.
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 	int totalmines = game.getTotalMines();
@@ -234,7 +209,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 	int numflags = getNumFlags(game);
 
 	/*=== Create cell groups ===*/
-	std::vector<std::set<BoardPosition> > relevantCellGroups;
+	std::vector<std::vector<BoardPosition> > relevantCellGroups;
 	std::vector<std::vector<BoardPosition> > relevantCells;
 	std::vector<std::vector<std::ptrdiff_t> > groupIndices(
 		numrows,
@@ -242,9 +217,9 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 			numcols,
 			-1
 	));
-	std::vector<std::vector<std::set<std::ptrdiff_t> > > revealedCellGroups(
+	std::vector<std::vector<std::vector<std::ptrdiff_t> > > revealedCellGroups(
 		numrows, 
-		std::vector<std::set<std::ptrdiff_t> >(
+		std::vector<std::vector<std::ptrdiff_t> >(
 			numcols
 	));
 
@@ -252,9 +227,9 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
-			if (game.getCell(i, j) != CELL_HIDDEN) continue;
+			if (!game.isHidden(i, j)) continue;
 
-			std::set<BoardPosition> neighbors;
+			std::vector<BoardPosition> neighbors;
 			for (int dr = -1; dr <= 1; dr++) {
 				for (int dc = -1; dc <= 1; dc++) {
 					if (dr == 0 && dc == 0) continue;
@@ -269,7 +244,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 
 					if (other == CELL_HIDDEN || other == CELL_FLAG) continue;
 
-					neighbors.insert(BoardPosition {(int)newr, (int)newc});
+					neighbors.push_back(BoardPosition {(int)newr, (int)newc});
 				}
 			}
 
@@ -289,7 +264,13 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 			groupIndices[i][j] = idx;
 
 			for (const auto& neighbor : neighbors) {
-				revealedCellGroups[neighbor.row][neighbor.col].insert(idx);
+				if (
+					std::find(
+						revealedCellGroups[neighbor.row][neighbor.col].begin(),
+						revealedCellGroups[neighbor.row][neighbor.col].end(),
+						idx
+					) == revealedCellGroups[neighbor.row][neighbor.col].end()
+				) revealedCellGroups[neighbor.row][neighbor.col].push_back(idx);
 			}
 		}
 	}
@@ -302,7 +283,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 
 	for (std::size_t i = 0; i < numRelevantCellGroups; i++) {
 
-		std::set<BoardPosition> constraints = relevantCellGroups[i];
+		std::vector<BoardPosition> constraints = relevantCellGroups[i];
 		std::vector<BoardPosition> cellGroup = relevantCells[i];
 
 		std::size_t numCells = cellGroup.size();
@@ -320,7 +301,7 @@ PossibilitiesResult Solver::getPossibilities(Game& game) {
 					(int)game.getCell(constraint.row, constraint.col) - 
 					getCellsOfTypeAroundAnother(CELL_FLAG, game, constraint.row, constraint.col);
 
-				std::set<std::ptrdiff_t> groupIndices = revealedCellGroups[constraint.row][constraint.col];
+				std::vector<std::ptrdiff_t> groupIndices = revealedCellGroups[constraint.row][constraint.col];
 
 				for (const std::ptrdiff_t& groupIndex : groupIndices) {
 					if (groupIndex == i) continue;
@@ -521,7 +502,7 @@ SearchResult Solver::search(
 		int cellnumpossibilities = 0;
 		int potentialwins = 0;
 
-		std::vector<bool> seen(9);
+		std::array<bool, 9> seen = {false};
 
 		for (int i : allowedIndices) {
 			if (mineCombinations[i][click]) {
@@ -563,14 +544,12 @@ SearchResult Solver::search(
 		if (cellnumpossibilities > 1) {
 			dead[click] = false;
 			alldead = false;
-		}
 
-		if (!mine) {
-			bestClick = click;
-			forcedClick = true;
-			alldead = false;
-			dead[click] = false;
-			break;
+			if (!mine) {
+				bestClick = click;
+				forcedClick = true;
+				break;
+			}
 		}
 	}
 
@@ -792,7 +771,7 @@ BoardPosition Solver::runBruteForce(Game& game) {
 		}
 	}
 
-	//std::vector<std::vector<bool> >(1 << numHiddenCells, std::vector<bool>())
+	//std::cout << mineCombinations.size() << " " << totalCombinations << " mines\n";
 
 	std::vector<int> allowedIndices(totalCombinations);
 	for (int i = 0; i < totalCombinations; i++) {
@@ -1104,6 +1083,8 @@ Move Solver::getBestMove(Game& game) {
 		return out;
 	}
 
+	guessed = false;
+
 	std::size_t numrows = game.getRows();
 	std::size_t numcols = game.getCols();
 
@@ -1173,6 +1154,8 @@ Move Solver::getBestMove(Game& game) {
 		queue.pop_back();
 		return out;
 	}
+
+	guessed = true;
 
 	if (getNumHidden(game) < 23 && analytics.possibilities.logTotalCombinations < std::log(100000)) {
 		//Use brute force to get perfect play

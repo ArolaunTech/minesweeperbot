@@ -54,6 +54,11 @@ int main() {
 			GameState currstate = game.getGameState();
 
 			if (currstate == GAME_LOSS) {
+				if (!solver.guessed) {
+					std::cout << "BUG!!!\n";
+					return 0;
+				}
+
 				//std::cout << "Loss :(\n" /*<< game.toString()*/;
 				losses++;
 
@@ -81,22 +86,23 @@ int main() {
 				break;
 			}
 
-			/*std::vector<std::vector<double> > probabilities = solver.getMineProbabilities(game);
+			//std::cout << solver.analyze(game).possibilities.logTotalCombinations << "\n";
+			//std::vector<std::vector<double> > probabilities = solver.getMineProbabilities(game);
 	
-			for (int i = 0; i < numrows; i++) {
-				for (int j = 0; j < numcols; j++) {
-					int roundedProbability = (int)std::round(100 * probabilities[i][j]);
+			//for (int i = 0; i < numrows; i++) {
+			//	for (int j = 0; j < numcols; j++) {
+			//		int roundedProbability = (int)std::round(100 * probabilities[i][j]);
 	
-					if (roundedProbability < 10) {
-						std::cout << "  " << roundedProbability << " ";
-					} else if (roundedProbability == 100) {
-						std::cout << "100 ";
-					} else {
-						std::cout << " " << roundedProbability << " ";
-					}
-				}
-				std::cout << "\n";
-			}*/
+			//		if (roundedProbability < 10) {
+			//			std::cout << "  " << roundedProbability << " ";
+			//		} else if (roundedProbability == 100) {
+			//			std::cout << "100 ";
+			//		} else {
+			//			std::cout << " " << roundedProbability << " ";
+			//		}
+			//	}
+			//	std::cout << "\n";
+			//}
 
 			Move move = solver.getBestMove(game);
 
@@ -104,7 +110,7 @@ int main() {
 		}
 		
 
-		if /*(games % 100 == 99)*/(true) {
+		if (games % 100 == 99) {
 			double error = 1.96 * std::sqrt((double)wins * losses / (wins + losses) / (wins + losses) / games);
 			error = 0.01 * std::round(10000.0 * error);
 

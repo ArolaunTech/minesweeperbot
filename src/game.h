@@ -38,7 +38,7 @@ public:
 	Game(int rows, int cols, int nummines);
 
 	void initializeWithState(
-		std::vector<std::vector<bool> >& newmines,
+		std::vector<std::vector<int> >& newmines,
 		std::vector<std::vector<bool> >& newrevealed,
 		std::vector<std::vector<bool> >& newflagged
 	);
@@ -47,7 +47,8 @@ public:
 	std::size_t getCols();
 
 	CellState getCell(int row, int col);
-	bool cellIsState(int row, int col, CellState state);
+	bool isHidden(int row, int col);
+	bool isFlag(int row, int col);
 	std::vector<std::vector<CellState> > getBoard();
 	std::vector<std::vector<bool> > getRevealed();
 	std::vector<std::vector<bool> > getFlagged();

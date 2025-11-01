@@ -500,76 +500,6 @@ SearchResult Solver::search(
 
 	std::size_t numHiddenCells = hiddenCells.size();
 
-	/*=== Potential optimization: Split cells into groups ===*/
-	std::vector<int> hiddenCellGroups(numHiddenCells, -1);
-	int numGroups = 0;
-	for (std::size_t click = 0; click < numHiddenCells; click++) {
-		if (hiddenCellGroups[click] != -1) continue;
-		if (!allowedClicks[click]) continue;
-
-		std::vector<std::size_t> queue = {click};
-
-		while (!queue.empty()) {
-			std::size_t cellIndex = queue[queue.size() - 1];
-
-			queue.pop_back();
-
-			hiddenCellGroups[cellIndex] = numGroups;
-
-			BoardPosition currpos = hiddenCells[cellIndex];
-
-			for (int dr = -1; dr <= 1; dr++) {
-				for (int dc = -1; dc <= 1; dc++) {
-					if (dr == 0 && dc == 0) continue;
-
-					int newrow = currpos.row + dr;
-					int newcol = currpos.col + dc;
-
-					if (newrow < 0 || newrow >= numrows || newcol < 0 || newcol >= numcols) continue;
-					if (!game.cellIsState(newrow, newcol, CELL_HIDDEN)) continue;
-
-					std::size_t otherindex = hiddenCellIndex[newrow][newcol];
-
-					if (!allowedClicks[otherindex]) continue;
-					if (hiddenCellGroups[otherindex] != -1) continue;
-
-					queue.push_back(otherindex);
-				}
-			}
-		}
-
-		numGroups++;
-	}
-
-	std::vector<int> nummines(numGroups, -1);
-	std::vector<bool> independent(numGroups, true);
-	for (int i : allowedIndices) {
-		std::vector<int> possmines(numGroups, -1);
-
-		for (std::size_t click = 0; click < numHiddenCells; click++) {
-			if (mineCombinations[i][click]) possmines[hiddenCellGroups[click]]++;
-		}
-
-		for (int group = 0; group < numGroups; group++) {
-			if (nummines[group] == -1) {
-				nummines[group] = possmines[group];
-				continue;
-			}
-
-			if (nummines[group] != possmines[group]) independent[group] = false;
-		}
-	}
-
-	int forcedGroup = -1;
-	for (int i = 0; i < numGroups; i++) {
-		if (independent[i]) {
-			forcedGroup = i;
-			break;
-		}
-	}
-
-	/*=== Old code ===*/
-
 	std::size_t bestClick = 0;
 	int bestWins = 0;
 	bool forcedClick = false;
@@ -660,7 +590,6 @@ SearchResult Solver::search(
 		if (!allowedClicks[click]) continue;
 		if (forcedClick && click != bestClick) continue;
 		if (dead[click]) continue;
-		if (!forcedClick && forcedGroup != -1 && hiddenCellGroups[click] != forcedGroup) continue;
 
 		std::vector<bool> newAllowedClicks = allowedClicks;
 		newAllowedClicks[click] = false;
@@ -907,7 +836,7 @@ BoardPosition Solver::runGS(Game& game) {
 
 	std::size_t bestrow = 0, bestcol = 0;
 
-	std::vector<BoardPosition> moves;
+	/*std::vector<BoardPosition> moves;
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
 			if (!game.cellIsState(i, j, CELL_HIDDEN)) continue;
@@ -1148,7 +1077,7 @@ BoardPosition Solver::runGS(Game& game) {
 
 	/*=== Keep this for now ===*/
 	double bestscore = -1;
-	//bestrow = 0; bestcol = 0;
+	bestrow = 0; bestcol = 0;
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
 			if (game.getCell(i, j) != CELL_HIDDEN) continue;
@@ -1158,8 +1087,8 @@ BoardPosition Solver::runGS(Game& game) {
 
 			if (score >= bestscore) {
 				bestscore = score;
-				//bestrow = i;
-				//bestcol = j;
+				bestrow = i;
+				bestcol = j;
 			}
 		}
 	}

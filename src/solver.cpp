@@ -818,7 +818,7 @@ BoardPosition Solver::runGS(Game& game) {
 	/*std::vector<BoardPosition> moves;
 	for (std::size_t i = 0; i < numrows; i++) {
 		for (std::size_t j = 0; j < numcols; j++) {
-			if (!game.cellIsState(i, j, CELL_HIDDEN)) continue;
+			if (!game.isHidden(i, j)) continue;
 			if (isUnrelevantRadius(game, i, j, 2)) continue;
 
 			moves.push_back(BoardPosition {(int)i, (int)j});
@@ -858,7 +858,7 @@ BoardPosition Solver::runGS(Game& game) {
 
 		for (std::size_t row = 0; row < numrows; row++) {
 			for (std::size_t col = 0; col < numcols; col++) {
-				mines[row][col] = game.cellIsState(row, col, CELL_FLAG);
+				mines[row][col] = game.isFlag(row, col);
 			}
 		}
 

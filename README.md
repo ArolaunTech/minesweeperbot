@@ -1,6 +1,6 @@
 # Minesweeper bot
 
-I don't have a name for this currently (though maybe I will eventually). Right now it's fairly strong, but not strong enough.
+I don't have a name for this currently (though maybe I will eventually). Note that development is paused on this (maybe indefinitely).
 
 ## Best win rate
 
